@@ -1,4 +1,4 @@
-name: Flutter Build Pipeline
+name: Build Android APK
 
 on:
   push:
@@ -6,36 +6,33 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-android:
-    name: Build Android Release
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'zulu'
-          java-version: '17'
+    - name: Set up JDK
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'zulu'
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-          cache-key: ${{ runner.os }}-flutter-cache
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: stable
 
-      - name: Resolve Dependencies
-        run: flutter pub get
+    - name: Install dependencies
+      run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release --split-per-abi
+    - name: Build APK
+      run: flutter build apk --release
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ble-receiver-apk
-          path: build/app/outputs/apk/release/app-armeabi-v7a-release.apk
+    - name: Upload APK
+      uses: actions/upload-artifact@v4 # الإصدار المعدل
+      with:
+        name: ble-file-receiver
+        path: build/app/outputs/apk/release/app-release.apk
