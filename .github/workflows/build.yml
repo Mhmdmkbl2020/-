@@ -13,12 +13,9 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Validate Structure
-        run: |
-          ls -la
-          ls -la lib/
-          [ -f lib/main.dart ] || exit 1
+    
+      - name: Debug Files
+        run: find . -name "main.dart"
 
       - name: Setup Java
         uses: actions/setup-java@v3
@@ -30,17 +27,16 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: false
-
-      - name: Clean Workspace
-        run: |
-          flutter clean
-          rm -rf .dart_tool
-          rm -rf .packages
-          rm pubspec.lock
+          cache: true
 
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Build APK
         run: flutter build apk --release --split-per-abi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ble-receiver-apk
+          path: build/app/outputs/apk/release/*.apk
