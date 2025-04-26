@@ -8,18 +8,18 @@ import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await _initializeApp();
+  await _requestPermissions();
   runApp(const BLEFileReceiverApp());
 }
 
-Future<void> _initializeApp() async {
-  await Permission.bluetooth.request();
-  await Permission.bluetoothConnect.request();
-  await Permission.bluetoothScan.request();
-  await Permission.storage.request();
-  if (Platform.isAndroid) {
-    await Permission.locationWhenInUse.request();
-  }
+Future<void> _requestPermissions() async {
+  await [
+    Permission.bluetooth,
+    Permission.bluetoothConnect,
+    Permission.bluetoothScan,
+    Permission.storage,
+    if (Platform.isAndroid) Permission.locationWhenInUse,
+  ].request();
 }
 
 class BLEFileReceiverApp extends StatelessWidget {
@@ -64,14 +64,14 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
 
       _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
         _updateDeviceList(results);
-      }, onError: (e) => _showError('Scan Error: ${e.toString()}'));
+      }, onError: (e) => _showError('خطأ في البحث: ${e.toString()}'));
 
       await FlutterBluePlus.startScan(
         timeout: const Duration(seconds: 15),
         androidUsesFineLocation: true,
       );
     } catch (e) {
-      _showError('Scan Failed: ${e.toString()}');
+      _showError('فشل في بدء البحث: ${e.toString()}');
     }
   }
 
@@ -82,11 +82,9 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
         .toSet()
         .toList();
 
-    setState(() {
-      _devices
-        ..clear()
-        ..addAll(newDevices);
-    });
+    setState(() => _devices
+      ..clear()
+      ..addAll(newDevices));
   }
 
   void _showError(String message) {
@@ -100,7 +98,7 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Available Devices'),
+        title: const Text('الأجهزة المتاحة'),
         actions: [
           IconButton(
             icon: Icon(_isScanning ? Icons.stop : Icons.search),
@@ -109,43 +107,20 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
         ],
       ),
       body: _devices.isEmpty
-          ? const Center(child: Text('No devices found'))
+          ? const Center(child: Text('لم يتم العثور على أجهزة'))
           : ListView.builder(
               itemCount: _devices.length,
-              itemBuilder: (ctx, i) => DeviceTile(
-                device: _devices[i],
-                onConnect: (device) => Navigator.push(
+              itemBuilder: (ctx, i) => ListTile(
+                leading: const Icon(Icons.bluetooth),
+                title: Text(_devices[i].name),
+                subtitle: Text(_devices[i].remoteId.toString()),
+                onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => FileTransferScreen(device: device),
-                  ),
+                    builder: (_) => FileTransferScreen(device: _devices[i]),
                 ),
               ),
             ),
-    );
-  }
-}
-
-class DeviceTile extends StatelessWidget {
-  final BluetoothDevice device;
-  final Function(BluetoothDevice) onConnect;
-
-  const DeviceTile({
-    super.key,
-    required this.device,
-    required this.onConnect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: const Icon(Icons.bluetooth),
-      title: Text(device.name),
-      subtitle: Text(device.remoteId.toString()),
-      trailing: IconButton(
-        icon: const Icon(Icons.link),
-        onPressed: () => onConnect(device),
-      ),
     );
   }
 }
@@ -165,7 +140,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
   
   List<int> _receivedData = [];
   bool _isReceiving = false;
-  String _status = 'Connecting...';
+  String _status = 'جاري الاتصال...';
   StreamSubscription<List<int>>? _dataSubscription;
 
   @override
@@ -188,25 +163,25 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
       
       final targetService = services.firstWhere(
         (s) => s.uuid == _serviceUuid,
-        orElse: () => throw Exception('Service not found'),
+        orElse: () => throw Exception('الخدمة غير موجودة'),
       );
 
       final characteristic = targetService.characteristics.firstWhere(
         (c) => c.uuid == _charUuid,
-        orElse: () => throw Exception('Characteristic not found'),
+        orElse: () => throw Exception('الخاصية غير موجودة'),
       );
 
       await characteristic.setNotifyValue(true);
       _dataSubscription = characteristic.value.listen(_handleData);
 
-      setState(() => _status = 'Connected - Ready to receive');
+      setState(() => _status = 'متصل - جاهز لاستقبال الملفات');
     } catch (e) {
-      setState(() => _status = 'Connection Failed: ${e.toString()}');
+      setState(() => _status = 'فشل الاتصال: ${e.toString().split(':').first}');
     }
   }
 
   void _handleData(List<int> data) {
-    if (!_isReceiving && data.first == 0x02) { // STX Start of text
+    if (!_isReceiving && data.first == 0x02) {
       _startReceiving();
     }
 
@@ -214,7 +189,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
       setState(() => _receivedData.addAll(data));
     }
 
-    if (data.last == 0x03) { // ETX End of text
+    if (data.last == 0x03) {
       _finishReceiving();
     }
   }
@@ -223,22 +198,22 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
     setState(() {
       _isReceiving = true;
       _receivedData = [];
-      _status = 'Receiving data...';
+      _status = 'جاري استقبال البيانات...';
     });
   }
 
   Future<void> _finishReceiving() async {
     try {
       final dir = await getDownloadsDirectory();
-      final file = File('${dir?.path}/received_${DateTime.now().millisecondsSinceEpoch}.pdf');
+      final file = File('${dir?.path}/ملف_مستقبل_${DateTime.now().millisecondsSinceEpoch}.pdf');
       await file.writeAsBytes(Uint8List.fromList(_receivedData));
       
       setState(() {
         _isReceiving = false;
-        _status = 'File saved: ${file.path}';
+        _status = 'تم الحفظ: ${file.path.split('/').last}';
       });
     } catch (e) {
-      setState(() => _status = 'Save failed: ${e.toString()}');
+      setState(() => _status = 'فشل الحفظ: ${e.toString()}');
     }
   }
 
@@ -249,45 +224,30 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
         title: Text(widget.device.name),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildConnectionStatus(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.bluetooth_connected,
+                  color: _status.contains('متصل') ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 10),
+                Text(_status, style: const TextStyle(fontSize: 18)),
+              ],
+            ),
             const SizedBox(height: 20),
-            _buildTransferProgress(),
+            if (_isReceiving) ...[
+              const CircularProgressIndicator(),
+              const SizedBox(height: 10),
+              Text('تم استقبال ${_receivedData.length} بايت'),
+            ],
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildConnectionStatus() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          Icons.bluetooth_connected,
-          color: _status.contains('Connected') ? Colors.green : Colors.red,
-        ),
-        const SizedBox(width: 10),
-        Text(_status, style: Theme.of(context).textTheme.titleMedium),
-      ],
-    );
-  }
-
-  Widget _buildTransferProgress() {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: _isReceiving
-          ? Column(
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 10),
-                Text('Received ${_receivedData.lengthInBytes} bytes'),
-              ],
-            )
-          : const SizedBox.shrink(),
     );
   }
 }
