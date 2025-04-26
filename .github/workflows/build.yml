@@ -13,6 +13,9 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+    
+      - name: Debug Files
+             run: find . -name "main.dart"
 
       - name: Setup Java
         uses: actions/setup-java@v3
