@@ -1,0 +1,64 @@
+name: Java Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    # الخطوة 1: تحميل الكود من المستودع
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # الخطوة 2: تثبيت JDK 17
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    # الخطوة 3: عرض هيكل الملفات (للتأكد من المسارات)
+    - name: Inspect project structure
+      shell: pwsh
+      run: |
+        Get-ChildItem -Recurse
+        Write-Output "-------------------"
+        Write-Output "Current directory: $((Get-Item .).FullName)"
+
+    # الخطوة 4: ترجمة المشروع مع معالجة الأخطاء
+    - name: Compile Java Project
+      shell: pwsh
+      run: |
+        # إنشاء مجلد المخرجات إذا لم يكن موجوداً
+        $outDir = "out"
+        if (-not (Test-Path -Path $outDir)) {
+            New-Item -ItemType Directory -Path $outDir
+        }
+        
+        # البحث عن ملفات Java في المجلد الجذر أو src (إذا وجدت)
+        $javaFiles = if (Test-Path -Path "src") { "src/*.java" } else { "*.java" }
+        
+        # الترجمة مع إدارة الأخطاء
+        try {
+            javac -d $outDir -encoding UTF-8 $javaFiles
+            Write-Output "Compilation succeeded!"
+        } catch {
+            Write-Error "Compilation failed: $_"
+            exit 1
+        }
+
+    # الخطوة 5: تشغيل البرنامج مع تحقق مسبق
+    - name: Run Main Class
+      shell: pwsh
+      run: |
+        if (-not (Test-Path -Path "out/Main.class")) {
+            Write-Error "Main.class not found!"
+            exit 1
+        }
+        java -cp out Main
+      if: success() # تشغيل فقط إذا نجحت الخطوات السابقة
