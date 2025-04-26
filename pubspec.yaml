@@ -1,18 +1,18 @@
 name: ble_file_receiver
-description: Advanced BLE File Transfer Receiver
-version: 2.0.0+2
+description: BLE File Transfer Receiver
+version: 2.0.1+3
 publish_to: 'none'
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
-  flutter: '>=3.10.0'
+  flutter: '>=3.13.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  flutter_blue_plus: ^1.15.0
+  flutter_blue_plus: ^1.16.3
   path_provider: ^2.1.1
-  permission_handler: ^10.5.0
+  permission_handler: ^12.0.0+1
   intl: ^0.18.1
 
 dev_dependencies:
